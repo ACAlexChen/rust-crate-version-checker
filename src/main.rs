@@ -1,6 +1,8 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use std::error::Error;
 
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 #[derive(Debug, Deserialize)]
 struct CrateResponse {
@@ -16,38 +18,42 @@ struct CrateInfo {
   max_stable_version: String
 }
 
-fn main() {
-  let args = std::env::args();
-  let data: Vec<String> = args.collect();
-  let mut args = vec![];
-  for (i, str) in data.iter().enumerate() {
-    if i != 0 {
-      args.push(str.clone())
-    }
-  }
-  let arg = args.join(" ");
-  let crate_name = urlencoding::encode(&arg).into_owned();
-  let url = format!("https://crates.io/api/v1/crates/{}", &crate_name);
+fn get_crate_info(name: &str) -> Result<CrateResponse> {
+  let encoded_name = urlencoding::encode(name).into_owned();
+  let url = format!("https://crates.io/api/v1/crates/{}", encoded_name);
 
   let client = Client::new();
-  let response = client.get(url).header("User-Agent", "rust-crate-version-checker").send();
-  match response {
-    Ok(res_data) => {
-      let data:Result<CrateResponse, reqwest::Error>  = res_data.json();
-      match data {
-        Ok(data) => {
-          println!("{} 包的默认版本为：{}", &crate_name, &data.crate_info.default_version);
-          println!("{} 包的最新版本为：{}", &crate_name, &data.crate_info.newest_version);
-          println!("{} 包的最大版本为：{}", &crate_name, &data.crate_info.max_version);
-          println!("{} 包的最大稳定版本为：{}", &crate_name, &data.crate_info.max_stable_version)
-        },
-        Err(err) => {
-          println!("在解析数据时发生错误：\n{}", err)
-        }
-      }
-    },
-    Err(err) => {
-      println!("在网络请求时发生错误：\n{}", err)
-    }
+  let response = client
+    .get(url)
+    .header("User-Agent", "rust-crate-version-checker")
+    .send()?
+    .json()?;
+
+  Ok(response)
+}
+
+fn print_crate_info(name: &str, info: &CrateInfo) {
+  println!("{} 包的版本信息:", name);
+  println!("- 默认版本：{}", info.default_version);
+  println!("- 最新版本：{}", info.newest_version);
+  println!("- 最大版本：{}", info.max_version);
+  println!("- 最大稳定版本：{}", info.max_stable_version);
+}
+
+fn main() {
+  let crate_name = std::env::args()
+    .skip(1)
+    .collect::<Vec<String>>()
+    .join(" ");
+
+  if crate_name.is_empty() {
+    eprintln!("请提供包名！");
+    std::process::exit(1);
+  }
+
+  match get_crate_info(&crate_name) {
+    Ok(response) => print_crate_info(&crate_name, &response.crate_info),
+    Err(err) => eprintln!("错误: {}", err)
   }
 }
+
