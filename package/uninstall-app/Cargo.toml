@@ -1,0 +1,21 @@
+[package]
+name = "uninstall-app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winreg = "0.55.0"
+
+[profile.dev]
+opt-level = 0
+debug = 2
+panic = "unwind"
+overflow-checks = true
+lto = false
+
+[profile.release]
+lto = true
+opt-level = 3
+debug = 0
+panic = "abort"
+overflow-checks = false

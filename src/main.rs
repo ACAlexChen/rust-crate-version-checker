@@ -1,6 +1,7 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
+use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -40,6 +41,12 @@ fn print_crate_info(name: &str, info: &CrateInfo) {
   println!("- 最大稳定版本：{}", info.max_stable_version);
 }
 
+fn set_clipboard(str: &str) -> Result<()> {
+  let mut ctx = ClipboardContext::new()?;
+  ctx.set_contents(str.to_string())?;
+  Ok(())
+}
+
 fn main() {
   let crate_name = std::env::args()
     .skip(1)
@@ -52,8 +59,14 @@ fn main() {
   }
 
   match get_crate_info(&crate_name) {
-    Ok(response) => print_crate_info(&crate_name, &response.crate_info),
+    Ok(response) => {
+      print_crate_info(&crate_name, &response.crate_info);
+      if let Err(err) = set_clipboard(&response.crate_info.max_stable_version) {
+        eprintln!("错误：{}", err)
+      }
+    },
     Err(err) => eprintln!("错误: {}", err)
   }
+
 }
 
